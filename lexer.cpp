@@ -40,26 +40,33 @@ void dfaAddFinalState(DFA& dfa, unsigned int state)
 struct Lexer
 {
 	unordered_map<string,pair<string,string>> symbolTable;
-	DFA dfa_num;
+	DFA dfa_numi;
+	DFA dfa_numf;
 	DFA dfa_suma;
 	DFA dfa_resta;
 	DFA dfa_multi;
 	DFA dfa_div;
 	DFA dfa_parizq;
 	DFA dfa_parder;
+	DFA dfa_saltol;
 };
 
 void inicializaLexer(Lexer& lex)
 {
 
-	//automata de numeros
-	dfaAddTransition(lex.dfa_num,0,'n',1);
-	dfaAddTransition(lex.dfa_num,1,'n',1);
-	dfaAddTransition(lex.dfa_num,1,'.',2);
-	dfaAddTransition(lex.dfa_num,2,'n',3);
-	dfaAddTransition(lex.dfa_num,3,'n',3);
-	dfaAddFinalState(lex.dfa_num,1);
-	dfaAddFinalState(lex.dfa_num,3);
+	//automata de numeros enteros
+	dfaAddTransition(lex.dfa_numi,0,'n',1);
+	dfaAddTransition(lex.dfa_numi,1,'n',1);
+	dfaAddTransition(lex.dfa_numi,1,'.',2);
+	dfaAddFinalState(lex.dfa_numi,1);
+
+	//automata de numeros flotantes
+	dfaAddTransition(lex.dfa_numf,0,'n',1);
+	dfaAddTransition(lex.dfa_numf,1,'n',1);
+	dfaAddTransition(lex.dfa_numf,1,'.',2);
+	dfaAddTransition(lex.dfa_numf,2,'n',3);
+	dfaAddTransition(lex.dfa_numf,3,'n',3);
+	dfaAddFinalState(lex.dfa_numf,3);
 
 	//automata de +
 	dfaAddTransition(lex.dfa_suma,0,'+',1);
@@ -84,6 +91,10 @@ void inicializaLexer(Lexer& lex)
 	//automata de )
 	dfaAddTransition(lex.dfa_parder,0,')',1);
 	dfaAddFinalState(lex.dfa_parder,1);
+
+	//automata de salto de linea 
+	dfaAddTransition(lex.dfa_saltol,0,'\n',1);
+	dfaAddFinalState(lex.dfa_saltol,1);
 
 }
 
@@ -111,8 +122,8 @@ string dfaStart(DFA& dfa, std::ifstream& inputStream)
 
 	 	pair<unsigned int, char> transition = {currentState, symbol};
 
-        if(dfa.transitionTable.count(transition) == 0)
-        {
+     if(dfa.transitionTable.count(transition) == 0)
+     {
             // Backtrack
 	    inputStream.putback(symbolAux);
             if(dfa.finalStates.count(currentState) > 0)
@@ -127,7 +138,7 @@ string dfaStart(DFA& dfa, std::ifstream& inputStream)
 		    }
 		return "No aceptado";
 	    }
-        }
+    }
 	else
 	{
 		word=word+symbolAux;
@@ -149,21 +160,31 @@ bool addSymbolTable(Lexer& lexer,Token token)
 
 
 
-Token getNextToken(Lexer& lexer,std::ifstream& inputStream,int cont_sl)
+Token getNextToken(Lexer& lexer,std::ifstream& inputStream)
 {
 	string cad;
 	Token token;
 	while(inputStream.good())
 	{
-		//ejecuta el DFA de numeros
-		cad=dfaStart(lexer.dfa_num,inputStream);
+		//ejecuta el DFA de numeros flotantes
+		cad=dfaStart(lexer.dfa_numf,inputStream);
 		if(cad!="No aceptado")
 		{
-			token.nombre="ctenum"+cad;
+			token.nombre="float";
 			token.atributo=cad;
 			addSymbolTable(lexer,token);
 			return token;
 		}
+		//ejecuta el DFA de numeros enteros
+		cad=dfaStart(lexer.dfa_numi,inputStream);
+		if(cad!="No aceptado")
+		{
+			token.nombre="int";
+			token.atributo=cad;
+			addSymbolTable(lexer,token);
+			return token;
+		}
+
 		//ejecuta el DFA de +
 		cad=dfaStart(lexer.dfa_suma,inputStream);
 		if(cad!="No aceptado")
@@ -212,10 +233,18 @@ Token getNextToken(Lexer& lexer,std::ifstream& inputStream,int cont_sl)
 			token.atributo=cad;
 			return token;
 		}
+		//ejecuta el DFA de \n
+		cad=dfaStart(lexer.dfa_saltol,inputStream);
+		if(cad!="No aceptado")
+		{
+			token.nombre="Space";
+			token.atributo=cad;
+			return token;
+		}
 		//Verifica si hubo un error
 		if(cad=="No aceptado")
 		{
-			cout<< "Error en la linea" << " "<<cont_sl <<endl;
+			cout<< "Error" <<endl;
 			exit(1);
 		}
 		//Verifica si se termino el archivo
